@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development (never commit .dev.vars).
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
+BOOKING_TO=hello@yourdomain.com
+BOOKING_FROM=bookings@yourdomain.com
