@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "stitch-and-hem",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-08",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page"
+  }
+
+  // Optional: backup copy of every booking in KV.
+  // Create a namespace (Storage & Databases -> KV), then uncomment and paste its id:
+  //
+  // "kv_namespaces": [
+  //   { "binding": "BOOKINGS", "id": "paste-your-namespace-id-here" }
+  // ]
+}

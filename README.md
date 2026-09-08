@@ -1,64 +1,62 @@
 # Stitch & Hem — alterations business website
 
-A single-page marketing site with an online booking form. Static HTML, no build step, no dependencies. Deploys to Cloudflare Pages and serves the booking form through a Pages Function.
+A single-page marketing site with an online booking form. Static HTML, no build step, no runtime dependencies. Deploys to **Cloudflare Workers** using Static Assets, with the booking endpoint handled by the Worker.
 
 ```
 stitch-and-hem/
-├── public/              ← everything served to visitors
-│   ├── index.html       ← the whole site (HTML + CSS + JS in one file)
-│   ├── _headers         ← security headers and cache rules
+├── public/               ← static assets, served directly by Cloudflare
+│   ├── index.html        ← the whole site (HTML + CSS + JS in one file)
+│   ├── _headers          ← security headers and cache rules
 │   ├── robots.txt
 │   └── sitemap.xml
-├── functions/api/book.js ← receives booking submissions
-├── package.json          ← optional: local preview + CLI deploy
+├── src/index.js          ← Worker: handles POST /api/book, defers rest to assets
+├── wrangler.jsonc        ← Worker + assets configuration
 └── .dev.vars.example     ← template for local secrets
 ```
 
-## 1. Put it on GitHub
+## How the routing works
+
+Cloudflare serves anything in `public/` directly, without running the Worker. Only requests that don't match a file reach `src/index.js` — which handles `/api/book` and hands everything else back to the assets binding. So the static site costs no Worker invocations, and the API is a single file.
+
+## Deploying
+
+The Worker is already connected to this GitHub repo, so **pushing to `main` deploys**. Cloudflare runs `npx wrangler deploy`, which reads `wrangler.jsonc`, uploads `public/` and publishes `src/index.js` together as one unit.
+
+Deploy from your machine instead with:
 
 ```bash
-cd stitch-and-hem
-git init -b main
-git add .
-git commit -m "Alterations site: marketing page and booking form"
-gh repo create stitch-and-hem --private --source=. --push
+npm install
+npx wrangler deploy
 ```
 
-No `gh` CLI? Create an empty repo on github.com, then:
+### Dashboard build settings
 
-```bash
-git remote add origin git@github.com:YOUR-USERNAME/stitch-and-hem.git
-git push -u origin main
-```
+If you ever recreate the project, these are the settings that matter (Worker → Settings → Build):
 
-## 2. Connect Cloudflare Pages
+| Field | Value |
+|---|---|
+| Build command | *leave empty* |
+| Deploy command | `npx wrangler deploy` |
+| Root directory | `/` |
 
-1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-2. Authorise GitHub and pick `stitch-and-hem`
-3. Build settings:
-   - Framework preset: **None**
-   - Build command: *leave empty*
-   - Build output directory: `public`
-4. **Save and Deploy**
+The `name` in `wrangler.jsonc` must match the Worker's name, or you'll deploy to a second, separate Worker.
 
-You'll get a `*.pages.dev` URL in under a minute. Every push to `main` redeploys automatically.
+## Attaching your domain
 
-## 3. Point your domain at it
+Worker → **Domains** (or **Settings → Domains & Routes**) → **Add** → **Custom domain** → enter your domain. Add `www.` as a second entry if you want both. Since the domain is already in your Cloudflare account, DNS and TLS are handled automatically — usually live in a couple of minutes.
 
-In the Pages project → **Custom domains** → **Set up a custom domain** → enter your domain (and `www.` as a second entry if you want both). Because the domain is already in your Cloudflare account, the DNS records are created for you and TLS is issued automatically — usually live within a couple of minutes.
-
-Then update these three placeholders to your real domain:
+Then update the three placeholders that still say `example.com`:
 
 - `public/index.html` — the `<link rel="canonical">` tag
 - `public/robots.txt` — the `Sitemap:` line
 - `public/sitemap.xml` — the `<loc>` value
 
-## 4. Make the booking form email you
+## Making the booking form email you
 
-Until you configure this, submissions are accepted and written to the function log (Pages project → **Logs**) — the form works, you just have to go look for the entries. To get emails:
+Until you configure this, submissions are accepted and written to the Worker log — visible under **Observability → Logs**, or live with `npx wrangler tail`. The form works; you just have to go looking for the entries. To get emails:
 
 1. Sign up at [resend.com](https://resend.com), verify your domain, create an API key
-2. Pages project → **Settings** → **Environment variables** → add for **Production**:
+2. Worker → **Settings** → **Variables and Secrets** → add:
 
    | Name | Type | Value |
    |---|---|---|
@@ -66,23 +64,25 @@ Until you configure this, submissions are accepted and written to the function l
    | `BOOKING_TO` | Text | where bookings should land |
    | `BOOKING_FROM` | Text | a sender on your verified domain |
 
-3. Redeploy (Deployments → **Retry deployment**) so the variables take effect
+3. Redeploy so the values are picked up
 
-**Optional backup copy.** Create a KV namespace (Workers & Pages → **KV** → Create), then in Pages → Settings → **Bindings** → add a KV binding named `BOOKINGS`. Every submission is then also stored under `booking:<ref>` for a year, so nothing is lost if an email bounces.
+**Optional backup copy.** Create a KV namespace (Storage & Databases → KV), then uncomment the `kv_namespaces` block in `wrangler.jsonc` and paste the namespace id. Every submission is then also stored under `booking:<ref>` for a year, so nothing is lost if an email bounces.
 
-## 5. Local preview
+## Local development
 
 ```bash
 npm install
 cp .dev.vars.example .dev.vars   # fill in if you want to test emails
-npm run dev                      # http://localhost:8788
+npm run dev                      # http://localhost:8787
 ```
 
-Or, for the page alone with no function: `npx serve public`.
+`wrangler dev` serves the static files and runs the Worker together, so the booking form works locally exactly as it does in production.
+
+To watch production logs: `npm run tail`.
 
 ## Making it yours
 
-Everything is in `public/index.html`. The things you'll want to change:
+Everything visual is in `public/index.html`.
 
 **Business details** — search for these and replace throughout: `Stitch & Hem`, `12 Market Street`, `020 7946 0123`, `hello@example.com`, the opening hours in the *Visit us* section, and the `application/ld+json` block near the top (that block is what Google reads for your business listing, so keep it in step with the visible text).
 
@@ -99,22 +99,24 @@ Everything is in `public/index.html`. The things you'll want to change:
 
 **Reviews** — the three `.quote` blocks. Use real ones.
 
-**Photos** — the gallery currently holds inline SVG placeholders. To use real photos, drop them in `public/img/` and replace each `<svg>…</svg>` inside a `.shot` figure with:
+**Photos** — the gallery holds inline SVG placeholders. For real photos, drop them in `public/img/` and replace each `<svg>…</svg>` inside a `.shot` figure with:
 
 ```html
 <img src="/img/suit-sleeves.webp" alt="Suit jacket sleeves shortened by 4cm" width="800" height="600" loading="lazy">
 ```
 
-Export at roughly 800×600 as WebP and keep each under ~150KB. Then add `img-src 'self' data:;` targets as needed in `_headers` if you ever load images from another domain.
+Export around 800×600 as WebP, under ~150KB each.
 
-**Booking form fields** — the `<form class="booking">` block. If you add a field, add its `name` to the `FIELDS` array in `functions/api/book.js` too, otherwise it will be dropped.
+**Booking form fields** — the `<form class="booking">` block. If you add a field, add its `name` to the `FIELDS` array in `src/index.js` too, otherwise it will be dropped.
+
+**A custom 404** — add `public/404.html`; `not_found_handling` in `wrangler.jsonc` is already set to serve it.
 
 ## Notes
 
-- Validation runs client-side for fast feedback *and* server-side in the function, so the endpoint is safe even if someone posts to it directly.
+- Validation runs client-side for fast feedback *and* in the Worker, so the endpoint is safe even if someone posts to it directly.
 - The form blocks Sundays and same-day bookings, and only accepts dates within the next 90 days. Adjust in the `<script>` block at the bottom of `index.html`.
-- A hidden honeypot field catches basic spam bots. If you start seeing real spam, add Cloudflare Turnstile — it's free and integrates in a few lines.
-- The date input uses the visitor's browser locale, so it shows the right format automatically.
+- A hidden honeypot field catches basic spam bots. If real spam appears, add [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) — free, and a few lines to integrate.
+- `_headers` rules apply to static files only. Worker responses set their own headers in `src/index.js`.
 
 ## Licence
 
