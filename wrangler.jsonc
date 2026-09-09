@@ -20,7 +20,7 @@
   // `npx wrangler secret put RESEND_API_KEY` and survives every deploy.
   "vars": {
     "BOOKING_TO": "souvik.k.patra@gmail.com", // inbox that receives bookings
-    "BOOKING_FROM": "bookings@skp-lab.com" // must be on a Resend-verified domain
+    "BOOKING_FROM": "bookings@stichndstyle.com" // must be on a Resend-verified domain
   }
 
   // Optional: backup copy of every booking in KV.
