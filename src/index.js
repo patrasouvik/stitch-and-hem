@@ -120,14 +120,25 @@ async function handleBooking(request, env) {
     }
   }
 
-  if (env.RESEND_API_KEY && env.BOOKING_TO && env.BOOKING_FROM) {
+  // Name exactly which settings are missing, so a misconfiguration is obvious
+  // in the logs rather than looking like "email just isn't set up".
+  const missing = ["RESEND_API_KEY", "BOOKING_TO", "BOOKING_FROM"].filter((k) => !env[k]);
+  const placeholder = env.BOOKING_TO && env.BOOKING_TO.startsWith("CHANGE-ME");
+
+  if (missing.length === 0 && !placeholder) {
     try {
       await sendEmail(env, booking, ref);
     } catch (e) {
       console.error("Resend request failed", e);
     }
   } else {
-    console.log("Booking received (email not configured):", ref, JSON.stringify(booking));
+    console.warn(
+      placeholder
+        ? `BOOKING_TO is still the placeholder — edit vars in wrangler.jsonc. Booking ${ref} NOT emailed.`
+        : `Email not sent, missing: ${missing.join(", ")} (plain vars belong in wrangler.jsonc; ` +
+          `secrets via 'wrangler secret put'). Booking ${ref} NOT emailed.`
+    );
+    console.log("Booking received:", ref, JSON.stringify(booking));
   }
 
   return json({ ok: true, reference: ref });

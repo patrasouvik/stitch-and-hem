@@ -10,6 +10,17 @@
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "404-page"
+  },
+
+  // Plain-text vars MUST live here, not in the dashboard: `wrangler deploy`
+  // replaces the Worker's vars with this block every time, so anything added
+  // through the dashboard UI is wiped on the next push.
+  //
+  // Secrets are different — RESEND_API_KEY is set once via the dashboard or
+  // `npx wrangler secret put RESEND_API_KEY` and survives every deploy.
+  "vars": {
+    "BOOKING_TO": "souvik.k.patra@gmail.com", // inbox that receives bookings
+    "BOOKING_FROM": "bookings@skp-lab.com" // must be on a Resend-verified domain
   }
 
   // Optional: backup copy of every booking in KV.
